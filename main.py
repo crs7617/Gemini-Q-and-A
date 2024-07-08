@@ -10,7 +10,7 @@ import logging
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)  # Change to DEBUG for detailed logs
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
@@ -20,7 +20,17 @@ api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     logger.error("GEMINI_API_KEY environment variable not set")
     raise Exception("GEMINI_API_KEY environment variable not set")
-genai.configure(api_key=api_key)
+
+try:
+    genai.configure(api_key=api_key)
+    # Test the API key by generating a simple response
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    test_response = model.generate_content("Test")
+    if not test_response.text:
+        raise Exception("Invalid API key or model access")
+except Exception as e:
+    logger.error(f"Error configuring Gemini API: {str(e)}")
+    raise Exception(f"Error configuring Gemini API: {str(e)}")
 
 class Question(BaseModel):
     question: str
@@ -62,83 +72,46 @@ def generate_question(chapter):
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         logger.debug(f"Model response: {response.text}")
+        
+        # Parse the response
         lines = response.text.strip().split('\n')
+        question_text = next((line.split(': ', 1)[1] for line in lines if line.startswith("Question:")), "")
+        options = [line.split(') ', 1)[1] for line in lines if line.strip().startswith(('A)', 'B)', 'C)', 'D)'))]
+        correct_answer = next((line.split(': ', 1)[1] for line in lines if line.startswith("Answer:")), "")
+        hint = next((line.split(': ', 1)[1] for line in lines if line.startswith("Hint:")), "")
 
-        # Logging each line for better understanding
-        for i, line in enumerate(lines):
-            logger.debug(f"Line {i}: {line}")
+        if not question_text or len(options) != 4 or not correct_answer or not hint:
+            raise ValueError("Invalid response format from model")
 
-        if len(lines) < 8:
-            error_msg = f"Failed to generate question for {CHAPTERS[chapter]}: Insufficient response from model."
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
-
-        question_text = lines[0].split(': ', 1)[1] if len(lines) > 0 and ': ' in lines[0] else ""
-        options = [
-            lines[2].split(' ', 1)[1] if len(lines) > 2 and ' ' in lines[2] else "",
-            lines[3].split(' ', 1)[1] if len(lines) > 3 and ' ' in lines[3] else "",
-            lines[4].split(' ', 1)[1] if len(lines) > 4 and ' ' in lines[4] else "",
-            lines[5].split(' ', 1)[1] if len(lines) > 5 and ' ' in lines[5] else ""
-        ]
-        correct_answer = lines[6].split(': ', 1)[1] if len(lines) > 6 and ': ' in lines[6] else ""
-        hint = lines[7].split(': ', 1)[1] if len(lines) > 7 and ': ' in lines[7] else ""
-
-        # Log extracted values
-        logger.debug(f"Extracted question: {question_text}")
-        logger.debug(f"Extracted options: {options}")
-        logger.debug(f"Extracted answer: {correct_answer}")
-        logger.debug(f"Extracted hint: {hint}")
-
-        # Check if any field is empty and log error
-        if not question_text or not all(options) or not correct_answer or not hint:
-            error_msg = f"Failed to generate question for {CHAPTERS[chapter]}: Incomplete response from model."
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
-
-        question = Question(
+        return Question(
             question=question_text,
             options=options,
             ans=correct_answer,
             hint=hint
         )
 
-        return question
-
-    except HTTPException as http_err:
-        raise http_err
-
     except Exception as err:
-        error_msg = f"Failed to generate question for {CHAPTERS[chapter]}: {str(err)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
+        logger.error(f"Error generating question for {CHAPTERS[chapter]}: {str(err)}")
+        raise ValueError(f"Failed to generate question: {str(err)}")
 
 @app.get("/generate_questions/{chapter}")
 async def generate_questions(chapter: str):
-    try:
-        if chapter not in CHAPTERS:
-            raise HTTPException(status_code=400, detail="Invalid chapter")
+    if chapter not in CHAPTERS:
+        raise HTTPException(status_code=400, detail="Invalid chapter")
 
-        questions = {}
-        for i in range(5):  # Generate 5 questions per chapter
-            try:
-                question = generate_question(chapter)
-                questions[f"question {i+1}"] = question.dict()
-            except HTTPException as http_err:
-                logger.error(f"Error generating question {i+1} for {CHAPTERS[chapter]}: {http_err.detail}")
-                continue  # Continue generating other questions even if one fails
+    questions = {}
+    for i in range(5):  # Generate 5 questions per chapter
+        try:
+            question = generate_question(chapter)
+            questions[f"question_{i+1}"] = question.dict()
+        except Exception as err:
+            logger.error(f"Error generating question {i+1} for {CHAPTERS[chapter]}: {str(err)}")
+            continue  # Continue generating other questions even if one fails
 
-        if not questions:
-            raise HTTPException(status_code=500, detail="Failed to generate any questions")
+    if not questions:
+        raise HTTPException(status_code=500, detail="Failed to generate any questions")
 
-        return {CHAPTERS[chapter]: questions}
-
-    except HTTPException as http_err:
-        raise http_err
-
-    except Exception as err:
-        error_msg = f"Unexpected error while generating questions: {str(err)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
+    return JSONResponse(content={CHAPTERS[chapter]: questions})
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,6 +1,6 @@
-# Finance Q&A Generator Backend
+# Penny App Backend
 
-This FastAPI application generates finance-related questions using the Gemini 1.5 Flash API.
+This FastAPI application is a backend part of the penny app,it generates finance-related questions using the Gemini 1.5 Flash API.
 
 ## Setup
 

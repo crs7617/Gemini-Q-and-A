@@ -1,12 +1,13 @@
-Penny Backend
+# Finance Q&A Generator Backend
+
 This FastAPI application generates finance-related questions using the Gemini 1.5 Flash API.
 
-Setup
-Clone the Repository
-Install Dependencies
-bash
-Copy code
-pip install fastapi google-generativeai python-dotenv uvicorn
+## Setup
+
+1. **Clone the Repository**
+2. **Install Dependencies**
+   ```bash
+   pip install fastapi google-generativeai python-dotenv uvicorn
 Set Up Environment Variables
 Create a .env file and add your Gemini API key:
 makefile
@@ -33,14 +34,5 @@ Running the Application
 Start the FastAPI application with:
 
 bash
-Copy code
 uvicorn main:app --host 0.0.0.0 --port 8000
 Ensure you have the GEMINI_API_KEY set in your environment variables before running the app.
-
-
-
-
-
-
-
-

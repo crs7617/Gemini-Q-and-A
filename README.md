@@ -30,7 +30,8 @@ GET /generate_questions/{chapter}
 
 Generates 5 finance-related questions for the specified chapter.
 
-Available Chapters
+Available Chapters:
+
 introduction_to_personal_finance
 setting_financial_goals
 budgeting_and_expense_tracking
@@ -38,10 +39,12 @@ online_and_mobile_banking
 Testing
 This application has been tested using Postman.
 
-Running the Application
+Running the Application:
+
 Start the FastAPI application with:
 
-bash
-Copy code
+In bash:
+
 uvicorn main:app --host 0.0.0.0 --port 8000
+
 Ensure you have the GEMINI_API_KEY set in your environment variables before running the app.

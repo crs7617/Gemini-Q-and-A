@@ -100,7 +100,7 @@ async def generate_questions(chapter: str):
         raise HTTPException(status_code=400, detail="Invalid chapter")
 
     questions = {}
-    for i in range(5):  # Generate 5 questions per chapter
+    for i in range(10):  # Generate 10 questions per chapter
         try:
             question = generate_question(chapter)
             questions[f"question_{i+1}"] = question.dict()
@@ -113,8 +113,29 @@ async def generate_questions(chapter: str):
 
     return JSONResponse(content={CHAPTERS[chapter]: questions})
 
+@app.get("/generate_all_questions")
+async def generate_all_questions():
+    all_questions = {}
+    for chapter in CHAPTERS:
+        questions = {}
+        for i in range(10):  # Generate 10 questions per chapter
+            try:
+                question = generate_question(chapter)
+                questions[f"question_{i+1}"] = question.dict()
+            except Exception as err:
+                logger.error(f"Error generating question {i+1} for {CHAPTERS[chapter]}: {str(err)}")
+                continue  # Continue generating other questions even if one fails
+        
+        if questions:
+            all_questions[CHAPTERS[chapter]] = questions
+        else:
+            logger.warning(f"Failed to generate any questions for {CHAPTERS[chapter]}")
+
+    if not all_questions:
+        raise HTTPException(status_code=500, detail="Failed to generate any questions for any chapter")
+
+    return JSONResponse(content=all_questions)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
